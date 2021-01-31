@@ -23,13 +23,14 @@ let npm args workingDir =
         match ProcessUtils.tryFindFileOnPath "npm" with
         | Some path -> path
         | None ->
-            "npm was not found in path. Please install it and make sure it's available from your path. " +
-            "See https://safe-stack.github.io/docs/quickstart/#install-pre-requisites for more info"
+            "npm was not found in path. Please install it and make sure it's available from your path. "
+            + "See https://safe-stack.github.io/docs/quickstart/#install-pre-requisites for more info"
             |> failwith
 
-    let arguments = args |> String.split ' ' |> Arguments.OfArgs
+    let arguments =
+        args |> String.split ' ' |> Arguments.OfArgs
 
-    Command.RawCommand (npmPath, arguments)
+    Command.RawCommand(npmPath, arguments)
     |> CreateProcess.fromCommand
     |> CreateProcess.withWorkingDirectory workingDir
     |> CreateProcess.ensureExitCode
@@ -37,8 +38,11 @@ let npm args workingDir =
     |> ignore
 
 let dotnet cmd workingDir =
-    let result = DotNet.exec (DotNet.Options.withWorkingDirectory workingDir) cmd ""
-    if result.ExitCode <> 0 then failwithf "'dotnet %s' failed in %s" cmd workingDir
+    let result =
+        DotNet.exec (DotNet.Options.withWorkingDirectory workingDir) cmd ""
+
+    if result.ExitCode <> 0
+    then failwithf "'dotnet %s' failed in %s" cmd workingDir
 
 let openBrowser url =
     //https://github.com/dotnet/corefx/issues/10361
@@ -49,32 +53,29 @@ let openBrowser url =
     |> ignore
 
 
-Target.create "Clean" (fun _ ->
-    [ deployDir
-      clientDeployPath ]
-    |> Shell.cleanDirs
-)
+Target.create "Clean" (fun _ -> [ deployDir; clientDeployPath ] |> Shell.cleanDirs)
 
 Target.create "InstallClient" (fun _ -> npm "install" ".")
 
-Target.create "Build" (fun _ ->
-    dotnet (sprintf "publish -c Release -o \"%s\"" deployDir) serverPath
-    npm "run build" "."
-)
+Target.create
+    "Build"
+    (fun _ ->
+        dotnet (sprintf "publish -c Release -o \"%s\"" deployDir) serverPath
+        npm "run build" ".")
 
-Target.create "Run" (fun _ ->
-    dotnet "build" sharedPath
-    [ async { dotnet "watch run" serverPath }
-      async { npm "run start" "." } ]
-    |> Async.Parallel
-    |> Async.RunSynchronously
-    |> ignore
-)
+Target.create
+    "Run"
+    (fun _ ->
+        dotnet "build" sharedPath
+
+        [ async { dotnet "watch run" serverPath }
+          async { npm "run start" "." } ]
+        |> Async.Parallel
+        |> Async.RunSynchronously
+        |> ignore)
 
 open Fake.Core.TargetOperators
 
-"Clean"
-    ==> "InstallClient"
-    ==> "Run"
+"Clean" ==> "InstallClient" ==> "Run"
 
 Target.runOrDefaultWithArguments "Run"
